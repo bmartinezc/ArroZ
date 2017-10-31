@@ -145,7 +145,7 @@ RTI_ISR Brclr REB,$FF,LEER_T
         ;Cmpb #$00
         ;Beq LEER_T
         Dec REB
-        Bra salida
+        LBra salida
 LEER_T  Movb #$FF,BUFFER
         Ldaa #$EF       ;inicia LEER TECLA  PuntoA
         Staa PORTA
@@ -169,15 +169,18 @@ teclaIn Ldx #TECLAS      ;Encontro tecla, la guarda en BUFFER
         ;Leax b,X
         decb
         Ldaa B,X
+        Staa BUFFER     ;termina LEER TECLA, cargando en BUFFER usando el acumulador R2
         ;Movb B,X,BUFFER        ;termina LEER TECLA, cargando en BUFFER usando el acumulador R2
-        Staa BUFFER     ;termina LEER TECLA
         ;Stab PORTB
-	;Staa PORTB     ;termina LEER TECLA
-CBUFF   Brset BUFFER,$FF,PuntoBC ;si BUFFER =$FF,
+        ;Staa PORTB     ;termina LEER TECLA
+CBUFF   Brset BUFFER,$FF,PuntoE ;si BUFFER =$FF, Nohay tecla
+        Bra PuntoBC
 PuntoE  Brset TECLA,$FF,salida ;PuntoE, si TECLA =$FF ha habido error de lectura
         Brset BANDERAS,$02,PuntoA2
-        Brset BUFFER,$FF,PuntoE1
-        Movb #$FF,TECLA
+        Ldaa BUFFER             ;TECLA=BUFFER?
+        Cmpa TECLA
+        Beq PuntoE1         ;TECLA=BUFFER
+        Movb #$FF,TECLA        ;TECLA!=BUFFER
         Bra salida
 PuntoE1 Bset BANDERAS,$02
         Bra salida
@@ -187,10 +190,11 @@ PuntoA3 Clr BANDERAS   ;se limpian las BANDERAS y se pone TECL_LISTA=1
         Bset BANDERAS,$01
         Bra salida
         ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
-PuntoBC Brclr BANDERAS,$04,PuntoE;primera!=0 se debe revisar TECLA para validarla
+PuntoBC Brset BANDERAS,$04,PuntoE;primera!=0 se debe revisar TECLA para validarla
         Bset BANDERAS,$04        ;PRIMERA <- 1
         Movb #10,REB
         Movb BUFFER,TECLA
+        ;Movb BUFFER,PORTB
         Bra salida
 salida  Bset CRGFLG,$80                ;resetea la bandera
         RTI
