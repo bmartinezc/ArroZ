@@ -4,7 +4,7 @@
 ;*****************************************************************************
 ;
 ;        FECHA: 21 OCTUBRE 2017
-;        MODIFICADO: 21 OCTUBRE 2017
+;        MODIFICADO: 31 OCTUBRE 2017
 ;        AUTOR: BMARTINEZC
 ;        VERSION: 1.0
 ;
@@ -28,13 +28,13 @@
 ;                         ESTRUCTURAS DE DATOS GLOBALES
 ;...............................................................................
         org $1000
-PATRON: ds 1  ;variable PATRON, indice de control del for-next iterativo4
+PATRON: ds 1  ;variable PATRON, indice de control del for-next iterativo
 REB: ds 1     ;variable REB se utilizara para contar los rebotes
 BANDERAS: ds 1   ;BANDERAS = $0:%0:%PRIMERA:%VALIDA:%TECL_LISTA
-TECLA: ds 1  ;TECLA valor de la tecla ingresado
-BUFFER: ds 1  ;definimos las pariables para el buffer
+TECLA: ds 1  ;TECLA, valor de la tecla ingresado
+BUFFER: ds 1  ;definimos la variable para el buffer
 TMP1: ds 1    ;definimos las variables temporales que utilizaremos para validar y
-TMP2: ds 1    ;cargar los valores a PATRON
+TMP2: ds 1    ;cargar los valores a VALOR
 TMP3: ds 1
 VALOR:  ds 1    ;variable utilizada por subrutina TECLADO y LEDS
         org $1010
@@ -56,7 +56,7 @@ TECLAS: db $01,$02,$03,$04,$05,$06,$07,$08,$09,$B,$0,$E ;se define la tabla TECL
         org $1100
         ;puerto leds
 
-        ;configuracion de los LEDS
+        ;configuracion de los LEDS, PORTB
         movb #$FF,DDRB   ;Puerto B como salidas
         Bset DDRJ, $02   ;posicion 1 PORTJ como salida
         Bclr PTJ, $02    ;habilita los LEDS, se pone en 0 posicion 1 PORTJ
@@ -68,7 +68,7 @@ TECLAS: db $01,$02,$03,$04,$05,$06,$07,$08,$09,$B,$0,$E ;se define la tabla TECL
         Bset PUCR, $01 ;PORTA pull-up, PUCR control register
         ;inicio de la pila y habilitacion de interrupciones mascarables
         Lds  #$3BFF        ;inicializamos la pila
-        Cli             ;habilitag interrupciones mascarables
+        Cli             ;habilitacion interrupciones mascarables
 
 ;*******************************************************************************
 ;               PROGRAMA PRINCIPAL
@@ -76,16 +76,16 @@ TECLAS: db $01,$02,$03,$04,$05,$06,$07,$08,$09,$B,$0,$E ;se define la tabla TECL
 
         CLR PATRON     ;inicializamos las variables
         CLR REB
-        Clr BANDERAS
+        Clr BANDERAS    ;se inicializa TECL_LISTA=0, PRIMERA=0, VALIDA=0
         Movb #$FF,VALOR
-        Movb #$FF,TECLA ;se inicializa TECL_LISTA=0, TECLA = FF
+        Movb #$FF,TECLA ;se inicializa TECLA = FF
         Movb #$FF,BUFFER
         Movb #$FF,TMP1
         Movb #$FF,TMP2
         Movb #$FF,TMP3
         Movb #$00,PORTB  ;apaga los leds
 Espere  Wai             ;espera que ocurra la interrupcion RTI
-        ;BANDERAS = $0:%0:%Primera:%VALIDA:%TECL_LISTA
+        ;BANDERAS = $0:%0:%PRIMERA:%VALIDA:%TECL_LISTA
         ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
         Brclr BANDERAS,$01,Espere  ;se revisa el valor de TECL_LISTA en el nible mas significativo de TECLA
         Jsr TECLADO     ;se llama a la subrutina TECLADO
@@ -105,14 +105,32 @@ Espere  Wai             ;espera que ocurra la interrupcion RTI
 ;             Declaracion de variables locales
 ;...............................................................................
 ;VALOR: DS 1
-Va: DS 1
+;Va: DS 1
 ;...............................................................................
 ;...............................................................................
-TECLADO Movb TECLA,VALOR
+TECLADO Clr Banderas	;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
+        Movb TECLA,TMP3 ;cargamos TECLA a TMP3 para borrar luego TECLA
         Movb #$FF,TECLA
-        ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
-        Clr Banderas
-        Rts
+        Ldaa TMP3
+        Cmpa #$0E       ;revisamos si es ENTER($0E)
+        Beq LoadV
+
+
+LoadV   Brset TMP2,$FF,LoadT1 ;si TMP2 =$FF, no hay valores en TMP2, se revisa TMP1
+        Ldaa TMP1       ;hay dos valores a desplegar en VALOR, TMP1 y TMP2
+	Lsla	;se realizan desplazamientos a TMP1={0000,TECLA1}->TMP1={TECLA1,0000}
+        Lsla	;c <- TMP1 <- 0
+        Lsla
+        Lsla
+        Eora TMP2 ;R1 <- TMP1={TECLA1,0000} XOR TMP2={0000,TECLA2}, R1={TECLA1,TECLA2}
+        Staa VALOR      ;VALOR <- {TECLA1,TECLA2}
+        Movb #$FF,TMP1  ;limpiamos TMP1 y TMP2
+        Movb #$FF,TMP2
+        Bra Return
+LoadT1  Brset TMP1,$FF,Return ;si TMP1 =$FF, no hay valores ingresados en RAM
+        Movb TMP1,VALOR
+        Movb #$FF,TMP1
+Return  Rts
 
 
 ;...............................................................................
@@ -137,7 +155,7 @@ LEDS    Movb VALOR,PORTB
 ;...............................................................................
 ;             Declaracion de variables locales
 ;...............................................................................
-Contador: ds 1  ;respaldo del conteo en R2(B)
+;Contador: ds 1  ;respaldo del conteo en R2(B)
 ;...............................................................................
 ;...............................................................................
 RTI_ISR Brclr REB,$FF,LEER_T ;Revisa si rebote es cero, sino lo decrementa
