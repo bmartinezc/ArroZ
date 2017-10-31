@@ -1,3 +1,4 @@
+;AsmIDE AutoLoad="Load" AutoGo="g 1100"
 ;*****************************************************************************
 ;      Tarea4: LECTURA DEL TECLADO MATRICIAL
 ;*****************************************************************************
@@ -75,14 +76,15 @@ TECLAS: db $01,$02,$03,$04,$05,$06,$07,$08,$09,$B,$0,$E ;se define la tabla TECL
 
         CLR PATRON     ;inicializamos las variables
         CLR REB
-        Movb #$0F,TECLA ;se inicializa TECL_LISTA=0, TECLA = FF
+        Clr BANDERAS
+        Movb #$FF,VALOR
+        Movb #$FF,TECLA ;se inicializa TECL_LISTA=0, TECLA = FF
         Movb #$FF,BUFFER
         Movb #$FF,TMP1
         Movb #$FF,TMP2
         Movb #$FF,TMP3
-        Movb #$FF,VALOR
-        Movb #0,PORTB  ;apaga los leds
-Espere  Wai             ;espera que ocurra la interrupcion RTI
+        Movb #$00,PORTB  ;apaga los leds
+Espere  ;Wai             ;espera que ocurra la interrupcion RTI
         ;BANDERAS = $0:%0:%Primera:%VALIDA:%TECL_LISTA
         ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
         Brclr BANDERAS,$01,Espere  ;se revisa el valor de TECL_LISTA en el nible mas significativo de TECLA
@@ -107,9 +109,9 @@ Va: DS 1
 ;...............................................................................
 ;...............................................................................
 TECLADO Movb TECLA,VALOR
-        Movb $FF,TECLA
+        Movb #$FF,TECLA
         ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
-        Bclr Banderas,$01
+        Clr Banderas
         Rts
 
 
@@ -123,7 +125,7 @@ TECLADO Movb TECLA,VALOR
 ;...............................................................................
 ;...............................................................................
 LEDS    Movb VALOR,PORTB
-        Movb $FF,VALOR
+        Movb #$FF,VALOR
         rts
 
  
@@ -135,11 +137,17 @@ LEDS    Movb VALOR,PORTB
 ;...............................................................................
 ;             Declaracion de variables locales
 ;...............................................................................
-
+Contador: ds 1  ;respaldo del conteo en R2(B)
 ;...............................................................................
 ;...............................................................................
-RTI_ISR ;falta check REB,BUFFER=FF
-	Ldaa #$EF       ;inicia LEER TECLA
+RTI_ISR Brclr REB,$FF,LEER_T
+        ;Ldab REB        ;Revisa si rebote es cero, sino lo decrementa
+        ;Cmpb #$00
+        ;Beq LEER_T
+        Dec REB
+        Bra salida
+LEER_T  Movb #$FF,BUFFER
+        Ldaa #$EF       ;inicia LEER TECLA  PuntoA
         Staa PORTA
         Clrb
         Movb #$04, PATRON
@@ -149,16 +157,40 @@ forNext incb
         Brclr PORTA,$02,teclaIn        ;revisa segundo patron
         incb
         Brclr PORTA,$04,teclaIn        ;revisa tercer patron
-        Sec                 ;c=1
+        ;Sec                 ;c=1
         Rola    ;c<-R1<-c, rator para meter los nuevos valores de prueba de entrada a PORTA
         Staa PORTA
         Dec PATRON
         Bne forNext     ;revisa si PATRON!=0, salta al forNext
-        Bra CHECKBUF	;check BUFFER=$FF
-teclaIn Ldx TECLAS      ;Encontro tecla, la guarda en BUFFER
+        Bra CBUFF        ;check BUFFER=$FF
+teclaIn Ldx #TECLAS      ;Encontro tecla, la guarda en BUFFER
+        ;Stab Contador
+        ;dex             ;decrementa el puntero porq R2(A) cuenta desde 1
+        ;Leax b,X
+        decb
         Ldaa B,X
+        ;Movb B,X,BUFFER        ;termina LEER TECLA, cargando en BUFFER usando el acumulador R2
         Staa BUFFER     ;termina LEER TECLA
-CHECKBUF
-        
+        ;Stab PORTB
+	;Staa PORTB     ;termina LEER TECLA
+CBUFF   Brset BUFFER,$FF,PuntoBC ;si BUFFER =$FF,
+PuntoE  Brset TECLA,$FF,salida ;PuntoE, si TECLA =$FF ha habido error de lectura
+        Brset BANDERAS,$02,PuntoA2
+        Brset BUFFER,$FF,PuntoE1
+        Movb #$FF,TECLA
+        Bra salida
+PuntoE1 Bset BANDERAS,$02
+        Bra salida
+PuntoA2 Brset BUFFER,$FF,PuntoA3;Tecla Liberada si BUFFER=$FF
+        Bra salida
+PuntoA3 Clr BANDERAS   ;se limpian las BANDERAS y se pone TECL_LISTA=1
+        Bset BANDERAS,$01
+        Bra salida
+        ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
+PuntoBC Brclr BANDERAS,$04,PuntoE;primera!=0 se debe revisar TECLA para validarla
+        Bset BANDERAS,$04        ;PRIMERA <- 1
+        Movb #10,REB
+        Movb BUFFER,TECLA
+        Bra salida
 salida  Bset CRGFLG,$80                ;resetea la bandera
         RTI
