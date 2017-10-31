@@ -108,18 +108,34 @@ Espere  Wai             ;espera que ocurra la interrupcion RTI
 ;Va: DS 1
 ;...............................................................................
 ;...............................................................................
-TECLADO Clr Banderas	;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
+TECLADO Clr Banderas        ;BANDERAS, PRIMERA($04), VALIDA($02), TECL_LISTA($01)
         Movb TECLA,TMP3 ;cargamos TECLA a TMP3 para borrar luego TECLA
         Movb #$FF,TECLA
         Ldaa TMP3
         Cmpa #$0E       ;revisamos si es ENTER($0E)
-        Beq LoadV
-
-
+        Beq LoadV       ;cargamos valores a VALOR
+        Ldaa TMP3
+        Cmpa #$0B       ;revisamos si es BORRAR($0B)
+        Beq DelTMP      ; si es BORRAR, borramos TMP2 o TMP1
+        ;Se ingresaron datos validos distintos a ENTER y BORRAR, se cargan a TMP1 y TMP2
+        Brset TMP1,$FF,toT1     ;se revisa si TMP1 y TMP2 tienen valores cargados
+        Brset TMP2,$FF,toT2
+        Bra Return              ;TMP1 y TMP2 estan llenos, se espera un ENTER o BORRAR
+toT2    Movb TMP3,TMP2  ;TMP2 esta vacio, y TMP1 esta ocupado, se cargan valores a TMP2
+        Bra Return
+toT1    Movb TMP3,TMP1  ;TMP1 esta vacio, se cargan valores a TMP1
+        Bra Return
+	;Hubo BORRAR($OB)
+DelTMP  Brset TMP2,$FF,DelT1    ;si TMP2 =$FF, no hay valores en TMP2, se borra TMP1
+        Movb #$FF,TMP2  ;limpiamos TMP2
+        Bra Return
+DelT1   Movb #$FF,TMP1  ;limpiamos TMP1
+        Bra Return
+        ;Hubo ENTER($OE)
 LoadV   Brset TMP2,$FF,LoadT1 ;si TMP2 =$FF, no hay valores en TMP2, se revisa TMP1
         Ldaa TMP1       ;hay dos valores a desplegar en VALOR, TMP1 y TMP2
-	Lsla	;se realizan desplazamientos a TMP1={0000,TECLA1}->TMP1={TECLA1,0000}
-        Lsla	;c <- TMP1 <- 0
+        Lsla        ;se realizan desplazamientos a TMP1={0000,TECLA1}->TMP1={TECLA1,0000}
+        Lsla        ;c <- TMP1 <- 0
         Lsla
         Lsla
         Eora TMP2 ;R1 <- TMP1={TECLA1,0000} XOR TMP2={0000,TECLA2}, R1={TECLA1,TECLA2}
