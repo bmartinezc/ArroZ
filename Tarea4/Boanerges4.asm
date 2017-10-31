@@ -97,10 +97,17 @@ Espere  Wai             ;espera que ocurra la interrupcion RTI
 ;               SUBRUTINAS GENERALES
 ;*******************************************************************************
 
- 
 ;...............................................................................
 ;              SUBRUTINA TECLADO
 ;...............................................................................
+;Esta subrutina es llamada cuando la bandera TECL_LISTA=1, lo cual significa que
+;hay una nueva tecla en la variable TECLA, esta subrutina carga el valor de
+;TECLA en memoria RAM, directamente en TMP3, e indirectamente en las variables
+;TMP1, TMP2, segun el valor ingresado toma decisiones, si ingresan valores
+;validos de Teclas revisa si TMP1 y TMP2 estan vacios, carga primero valores en
+;TMP1 y luego en TMP2, si entra un ENTER($0E) procede a carga los valores de
+;TMP1 y TMP2 si existen valores validos. Si entra BORRAR($0B), procede a borrar,
+;primero en TMP2 y luego en TMP1. Ademas limpia las banderas y la variable TECLA.
 ;...............................................................................
 ;             Declaracion de variables locales
 ;...............................................................................
@@ -125,7 +132,7 @@ toT2    Movb TMP3,TMP2  ;TMP2 esta vacio, y TMP1 esta ocupado, se cargan valores
         Bra Return
 toT1    Movb TMP3,TMP1  ;TMP1 esta vacio, se cargan valores a TMP1
         Bra Return
-	;Hubo BORRAR($OB)
+        ;Hubo BORRAR($OB)
 DelTMP  Brset TMP2,$FF,DelT1    ;si TMP2 =$FF, no hay valores en TMP2, se borra TMP1
         Movb #$FF,TMP2  ;limpiamos TMP2
         Bra Return
@@ -152,6 +159,9 @@ Return  Rts
 ;...............................................................................
 ;              SUBRUTINA LEDS
 ;...............................................................................
+;Esta subrutina es llamada cuando la variable VALOR es modificada con algun valor
+;de tecla valido. Carga el dato guardado en VALOR a el puerto de LEDS, PORTB,
+;limpia la variable VALOR antes de retornar
 ;...............................................................................
 ;             Declaracion de variables locales
 ;...............................................................................
@@ -166,8 +176,10 @@ LEDS    Movb VALOR,PORTB
 ;*******************************************************************************
 ;              SUBRUTINA DE SERVICIO RTI_ISR
 ;*******************************************************************************
-; Esta subrutina es la encargada de leer el teclado, y revisar si hubo o hubieron,
-; teclas validas, ademas se encarga del manejo de rebote.
+; Esta subrutina es la encargada de leer el teclado, aproximadamente cada 1ms,
+;y revisar si se presiono alguna tecla, ademas se encarga del manejo de rebote.
+;Utilizando primeramente un BUFFER y luego guardando el valor valido en la
+;variable TECLA.
 ;...............................................................................
 ;             Declaracion de variables locales
 ;...............................................................................
